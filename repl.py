@@ -1,5 +1,8 @@
 from tokenize_and_parse import tokenize, parse
 from evaluate import evaluate
+from all_namespace import namespace
+
+names = namespace()
 
 def lisp_to_list(values):
     return values

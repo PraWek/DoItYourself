@@ -4,6 +4,7 @@ def find_value_by_key(list_of_dicts, key):
             return dictionary[key]
     return None
 
+
 def evaluate_elems(elems, names):
     if not elems:
         return ()
@@ -12,37 +13,63 @@ def evaluate_elems(elems, names):
     tail = evaluate_elems(tail, names)
     return (head, tail)
 
+
 def evaluate(value, names):
-    if isinstance(value, (int, float)):
-        return value
-
-    elif isinstance(value, str):
-        res = find_value_by_key(names, value)
-        if res:
-            return res
-        else:
-            raise NameError(value)
-
-    elif isinstance(value, dict):
-        return value
-
-    elif isinstance(value, tuple):
-        if not value:
+    try:
+        if isinstance(value, (int, float)):
             return value
-        head, tail = value
-        head = evaluate(head, names)
-        if not isinstance(head, dict):
-            raise TypeError(f'`{value}` не вызывается')
-        if "macro" in head:
-            macro = head["macro"]
-            return macro(tail)
-        elif "function" in head:
-            func = head["function"]
-            tail = evaluate_elems(tail, names)
-            return func(tail)
-        raise SystemError(f'неожиданный словарь: `{value}`')
 
-    raise TypeError(f'неподдерживаемый тип: `{type(value)}`')
+        elif isinstance(value, str):
+            if not names:
+                raise ValueError("Пустое пространство имён")
+            res = find_value_by_key(names, value)
+            if res is not None:
+                return res
+            raise NameError(f"Неопределённая переменная: '{value}'")
+
+        elif isinstance(value, dict):
+            if not value:
+                raise ValueError("Пустой словарь")
+            return value
+
+        elif isinstance(value, tuple):
+            if not value and value != ():
+                raise ValueError("Некорректный кортеж")
+            if not value:
+                return value
+
+            if len(value) < 2:
+                raise ValueError("Некорректная структура кортежа")
+
+            head, tail = value
+            try:
+                head = evaluate(head, names)
+            except Exception as e:
+                raise ValueError(f"Ошибка при вычислении головы выражения: {str(e)}")
+
+            if not isinstance(head, dict):
+                raise TypeError(f"Выражение '{value}' не является вызовом функции")
+
+            if "macro" in head:
+                try:
+                    macro = head["macro"]
+                    return macro(tail)
+                except Exception as e:
+                    raise ValueError(f"Ошибка при выполнении макроса: {str(e)}")
+            elif "function" in head:
+                try:
+                    func = head["function"]
+                    tail = evaluate_elems(tail, names)
+                    return func(tail)
+                except Exception as e:
+                    raise ValueError(f"Ошибка при выполнении функции: {str(e)}")
+            raise SystemError(f"Неожиданный тип словаря: '{value}'")
+
+        raise TypeError(f"Неподдерживаемый тип данных: '{type(value)}'")
+    except Exception as e:
+        if isinstance(e, (ValueError, TypeError, NameError, SystemError)):
+            raise
+        raise ValueError(f"Ошибка при вычислении выражения: {str(e)}")
 
 # from calculation_functions import multiply
 #

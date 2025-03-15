@@ -9,5 +9,9 @@ def print_list(pair):
     print("(" + create_result(pair) + ")")
 
 def check_pair(pair):
+    if not isinstance(pair, tuple):
+        raise TypeError("Аргумент должен быть кортежем")
     if len(pair) != 2:
-        return "Функция принимает ровно два аргумента"
+        raise ValueError("Пара должна содержать ровно два элемента")
+    if not isinstance(pair[1], tuple):
+        raise TypeError("Второй элемент пары должен быть кортежем")
