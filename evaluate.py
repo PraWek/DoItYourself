@@ -19,6 +19,15 @@ def evaluate(value, names):
         if isinstance(value, (int, float)):
             return value
 
+        elif isinstance(value, dict) and "type" in value:
+            if value["type"] == "string":
+                return value
+            elif value["type"] == "array":
+                return {"type": "array", "value": [evaluate(x, names) for x in value["value"]]}
+            elif value["type"] == "dict":
+                return {"type": "dict", "value": {evaluate(k, names): evaluate(v, names)
+                                                  for k, v in value["value"].items()}}
+
         elif isinstance(value, str):
             if not names:
                 raise ValueError("Пустое пространство имён")
