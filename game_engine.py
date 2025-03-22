@@ -1,8 +1,8 @@
 from typing import Dict, List, Optional
-# import json
 from tokenize_and_parse import tokenize, parse
 from evaluate import evaluate
 from all_namespace import namespace
+# import json
 
 
 class HackingScenario:
