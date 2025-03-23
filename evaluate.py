@@ -25,8 +25,7 @@ def evaluate(value, names):
             elif value["type"] == "array":
                 return {"type": "array", "value": [evaluate(x, names) for x in value["value"]]}
             elif value["type"] == "dict":
-                return {"type": "dict", "value": {evaluate(k, names): evaluate(v, names)
-                                                  for k, v in value["value"].items()}}
+                return {"type": "dict", "value": {k: evaluate(v, names) for k, v in value["value"].items()}}
 
         elif isinstance(value, str):
             if not names:

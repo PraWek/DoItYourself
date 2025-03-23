@@ -54,23 +54,7 @@ def parse(tokens):
             raise SyntaxError("Отсутствует закрывающая скобка")
         tokens.pop(0)
         return {"type": "array", "value": arr}
-    elif token.startswith('{'):
-        if not token == '{':
-            raise SyntaxError("Недопустимый синтаксис словаря")
-        dict_items = {}
-        while tokens and tokens[0] != '}':
-            key = parse(tokens)
-            if not tokens or tokens[0] != ':':
-                raise SyntaxError("Пропущенное двоеточие в словаре")
-            tokens.pop(0)
-            if not tokens:
-                raise SyntaxError("Пропущенное значение в словаре")
-            value = parse(tokens)
-            dict_items[key] = value
-        if not tokens:
-            raise SyntaxError("Отсутствует закрывающая фигурная скобка")
-        tokens.pop(0)
-        return {"type": "dict", "value": dict_items}
+
     elif token == ']' or token == '}' or token == ')':
         raise SyntaxError(f"Unexpected {token}")
     else:
