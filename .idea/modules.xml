@@ -2,7 +2,7 @@
 <project version="4">
   <component name="ProjectModuleManager">
     <modules>
-      <module fileurl="file://$PROJECT_DIR$/.idea/SlonCourse.iml" filepath="$PROJECT_DIR$/.idea/SlonCourse.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/do-it-yourself-lisp.iml" filepath="$PROJECT_DIR$/.idea/do-it-yourself-lisp.iml" />
     </modules>
   </component>
 </project>
