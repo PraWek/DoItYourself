@@ -1,3 +1,8 @@
+from array_macro import array_macro
+from dict_macro import dict_macro
+from string_macro import string_macro
+
+
 def tokenize(line):
     tokens = []
     current_token = ''
@@ -15,11 +20,12 @@ def tokenize(line):
             if current_token:
                 tokens.append(current_token)
                 current_token = ''
-        elif char == '(' or char == ')' and not in_quotes:
+        elif char in '(){}:,' and not in_quotes:
             if current_token:
                 tokens.append(current_token)
                 current_token = ''
-            tokens.append(char)
+            if char != ',':
+                tokens.append(char)
         else:
             current_token += char
         i += 1
@@ -42,35 +48,36 @@ def parse(tokens):
             raise SyntaxError("Отсутствует закрывающая скобка")
         tokens.pop(0)
         return tuple(lst[0] if len(lst) == 1 else lst[0] if len(lst) == 0 else (lst[0], tuple(lst[1:])))
-    elif token.startswith('"') and token.endswith('"'):
-        return {"type": "string", "value": token[1:-1]}
-    elif token.startswith('['):
-        if not token == '[':
-            raise SyntaxError("Недопустимый синтаксис массива")
-        arr = []
-        while tokens and tokens[0] != ']':
-            arr.append(parse(tokens))
+    elif token == '(':
+        elements = []
+        while tokens and tokens[0] != ')':
+            elements.append(parse(tokens))
         if not tokens:
             raise SyntaxError("Отсутствует закрывающая скобка")
         tokens.pop(0)
-        return {"type": "array", "value": arr}
-    elif token.startswith('{'):
-        if not token == '{':
-            raise SyntaxError("Недопустимый синтаксис словаря")
-        dict_items = {}
-        while tokens and tokens[0] != '}':
-            key = parse(tokens)
-            if not tokens or tokens[0] != ':':
-                raise SyntaxError("Пропущенное двоеточие в словаре")
-            tokens.pop(0)
-            if not tokens:
-                raise SyntaxError("Пропущенное значение в словаре")
-            value = parse(tokens)
-            dict_items[key] = value
+
+        # Проверяем тип макроса
+        if elements:
+            if elements[0] == 'dict':
+                return dict_macro(tuple(elements[1:]))
+            elif elements[0] == 'string':
+                return string_macro(tuple(elements[1:]))
+            elif elements[0] == 'array':
+                return array_macro(tuple(elements[1:]))
+        return tuple(elements)
+    elif token == '(':
+        elements = []
+        while tokens and tokens[0] != ')':
+            elements.append(parse(tokens))
         if not tokens:
-            raise SyntaxError("Отсутствует закрывающая фигурная скобка")
+            raise SyntaxError("Отсутствует закрывающая скобка")
         tokens.pop(0)
-        return {"type": "dict", "value": dict_items}
+
+        # Если это вызов dict
+        if elements and elements[0] == 'dict':
+            return dict_macro(tuple(elements[1:]))
+        return tuple(elements)
+
     elif token == ']' or token == '}' or token == ')':
         raise SyntaxError(f"Unexpected {token}")
     else:
