@@ -7,7 +7,7 @@ def try_function(args):
     names = namespace()
 
     if not args or len(args) < 2:
-        raise ValueError("try требует как минимум два аргумента: выражение и обработчик")
+        raise ValueError("try requires at least two arguments: expression and handler")
 
     expr, handler = args[0], args[1]
     try:
@@ -16,17 +16,61 @@ def try_function(args):
         return evaluate((handler, (str(e), ())), names)
 
 
+def create_move_wizard(game_instance):
+    def move_wizard(args):
+        if not args or not isinstance(args, tuple) or len(args) != 3:
+            return "Invalid arguments"
+
+        wizard_name = args[0]
+        dx = args[1]
+        dy = args[2]
+
+        if not isinstance(wizard_name, dict) or wizard_name.get("type") != "string":
+            return "Invalid wizard name"
+
+        for wizard in game_instance.wizards:
+            if wizard.name == wizard_name["value"]:
+                if game_instance.game_map.is_valid_position(wizard.x + dx, wizard.y + dy):
+                    wizard.x += dx
+                    wizard.y += dy
+                    wizard.direction = (dx, dy)
+                return True
+        return False
+
+    return move_wizard
+
+
+def cast_spell(game_instance):
+    def spell_handler(args):
+        if not args or not isinstance(args, tuple) or len(args) != 4:
+            return "Invalid arguments"
+
+        wizard_name = args[0]
+        spell_name = args[1]
+        target_x = args[2]
+        target_y = args[3]
+
+        if not isinstance(wizard_name, dict) or wizard_name.get("type") != "string":
+            return "Invalid wizard name"
+        if not isinstance(spell_name, dict) or spell_name.get("type") != "string":
+            return "Invalid spell name"
+
+        return game_instance.cast_spell(wizard_name["value"], spell_name["value"], target_x, target_y)
+
+    return spell_handler
+
+
 def namespace():
-    names = [{
+    return [{
         "+": {"function": add},
         "-": {"function": subtract},
         "*": {"function": multiply},
         "/": {"function": divide},
-        "<": less_than,
-        ">": greater_than,
-        "<=": less_or_equal,
-        ">=": greater_or_equal,
-        "==": equal,
-        "try": {"function": try_function}
+        "<": {"function": less_than},
+        ">": {"function": greater_than},
+        "<=": {"function": less_or_equal},
+        ">=": {"function": greater_or_equal},
+        "=": {"function": equal},
+        "try": {"function": try_function},
+        "str": {"function": lambda x: str(x[0]) if x else ""},
     }]
-    return names

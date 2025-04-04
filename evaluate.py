@@ -8,10 +8,13 @@ def find_value_by_key(list_of_dicts, key):
 def evaluate_elems(elems, names):
     if not elems:
         return ()
+    if not isinstance(elems, tuple) or len(elems) != 2:
+        return evaluate(elems, names)
     head, tail = elems
     head = evaluate(head, names)
-    tail = evaluate_elems(tail, names)
-    return (head, tail)
+    if tail == ():
+        return (head, ())
+    return (head, evaluate_elems(tail, names))
 
 
 def evaluate(value, names):
@@ -25,8 +28,7 @@ def evaluate(value, names):
             elif value["type"] == "array":
                 return {"type": "array", "value": [evaluate(x, names) for x in value["value"]]}
             elif value["type"] == "dict":
-                return {"type": "dict", "value": {evaluate(k, names): evaluate(v, names)
-                                                  for k, v in value["value"].items()}}
+                return {"type": "dict", "value": {k: evaluate(v, names) for k, v in value["value"].items()}}
 
         elif isinstance(value, str):
             if not names:
@@ -50,7 +52,11 @@ def evaluate(value, names):
             if len(value) < 2:
                 raise ValueError("Некорректная структура кортежа")
 
-            head, tail = value
+            if len(value) < 2:
+                head = value[0]
+                tail = ()
+            else:
+                head, tail = value[0], value[1:]
             try:
                 head = evaluate(head, names)
             except Exception as e:
