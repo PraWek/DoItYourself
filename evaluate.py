@@ -8,13 +8,18 @@ def find_value_by_key(list_of_dicts, key):
 def evaluate_elems(elems, names):
     if not elems:
         return ()
-    if not isinstance(elems, tuple) or len(elems) != 2:
-        return evaluate(elems, names)
-    head, tail = elems
-    head = evaluate(head, names)
-    if tail == ():
-        return (head, ())
-    return (head, evaluate_elems(tail, names))
+    if isinstance(elems, tuple):
+        if len(elems) == 0:
+            return ()
+        if len(elems) == 1:
+            return (evaluate(elems[0], names), ())
+        if len(elems) == 2:
+            head, tail = elems
+            head = evaluate(head, names)
+            if tail == ():
+                return (head, ())
+            return (head, evaluate_elems(tail, names))
+    return evaluate(elems, names)
 
 
 def evaluate(value, names):
@@ -56,7 +61,7 @@ def evaluate(value, names):
                 head = value[0]
                 tail = ()
             else:
-                head, tail = value[0], value[1:]
+                head, tail = value
             try:
                 head = evaluate(head, names)
             except Exception as e:
