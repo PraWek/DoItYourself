@@ -9,7 +9,9 @@ def add(pair):
         return 0
     else:
         head, tail = pair
-        return head + add(tail)
+        if isinstance(tail, tuple):
+            return head + add(tail)
+        return head + tail
 
 
 def subtract(pair):

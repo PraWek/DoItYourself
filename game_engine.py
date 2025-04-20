@@ -1,6 +1,6 @@
 import pygame
 from typing import List, Tuple, Dict
-from all_namespace import namespace, create_move_wizard, cast_spell
+from all_namespace import namespace, create_move_wizard, cast_spell, create_select_spell, create_toggle_ai
 from tokenize_and_parse import tokenize, parse
 from evaluate import evaluate
 
@@ -70,6 +70,7 @@ class WizardGame:
         self.current_wizard_index = 0
         self.game_map = GameMap(20, 15)
         self.wizards: List[Wizard] = []
+        self.ai_enabled = False
         self.casting_mode = False
         self.visual_effects: List[VisualEffect] = []
         self.spells: Dict[str, Spell] = {
@@ -79,6 +80,9 @@ class WizardGame:
         }
         self.projectiles: List[SpellProjectile] = []
         self.names = namespace()
+        self.names[0]["move-wizard"] = {"function": create_move_wizard(self)}
+        self.names[0]["select-spell"] = {"function": create_select_spell(self)}
+        self.names[0]["toggle-ai"] = {"function": create_toggle_ai(self)}
         self.lisp_command_input = ""
         self.lisp_output = ""
         self.command_history = []
@@ -186,44 +190,33 @@ class WizardGame:
                     break
 
     def handle_input(self):
-        keys = pygame.key.get_pressed()
+        # All input is now handled through LISP console commands
+        pass
 
-        # управление Гэндальфом
-        if not self.casting_mode:
-            # Spell selection (only when not typing in console)
-            if not pygame.key.get_focused() or not self.lisp_command_input:
-                if keys[pygame.K_1]:
-                    self.gandalf.selected_spell = "огненный шар"
-                elif keys[pygame.K_2]:
-                    self.gandalf.selected_spell = "ледяной осколок"
-                elif keys[pygame.K_3]:
-                    self.gandalf.selected_spell = "молния"
+    def move_wizard(self, wizard_name, dx, dy):
+        for wizard in self.wizards:
+            if wizard.name == wizard_name:
+                new_x = wizard.x + dx
+                new_y = wizard.y + dy
+                if self.game_map.is_valid_position(new_x, new_y):
+                    wizard.x = new_x
+                    wizard.y = new_y
+                    wizard.direction = (dx, dy)
+                    return True
+        return False
 
-            # Movement
-            if keys[pygame.K_LEFT]:
-                if self.game_map.is_valid_position(self.gandalf.x - 1, self.gandalf.y):
-                    self.gandalf.x -= 1
-                    self.gandalf.direction = (-1, 0)
-            if keys[pygame.K_RIGHT]:
-                if self.game_map.is_valid_position(self.gandalf.x + 1, self.gandalf.y):
-                    self.gandalf.x += 1
-                    self.gandalf.direction = (1, 0)
-            if keys[pygame.K_UP]:
-                if self.game_map.is_valid_position(self.gandalf.x, self.gandalf.y - 1):
-                    self.gandalf.y -= 1
-                    self.gandalf.direction = (0, -1)
-            if keys[pygame.K_DOWN]:
-                if self.game_map.is_valid_position(self.gandalf.x, self.gandalf.y + 1):
-                    self.gandalf.y += 1
-                    self.gandalf.direction = (0, 1)
+    def select_spell(self, wizard_name, spell_name):
+        if spell_name not in self.spells:
+            return False
+        for wizard in self.wizards:
+            if wizard.name == wizard_name:
+                wizard.selected_spell = spell_name
+                return True
+        return False
 
-            # Заклинания
-            if keys[pygame.K_1]:
-                self.gandalf.selected_spell = "огненный шар"
-            if keys[pygame.K_2]:
-                self.gandalf.selected_spell = "ледяной осколок"
-            if keys[pygame.K_3]:
-                self.gandalf.selected_spell = "молния"
+    def toggle_ai(self):
+        self.ai_enabled = not self.ai_enabled
+        return f"AI {'enabled' if self.ai_enabled else 'disabled'}"
 
     def cast_current_spell(self):
         spell = self.spells[self.gandalf.selected_spell]
@@ -582,7 +575,7 @@ class WizardGame:
                 self.handle_input()
 
                 ai_timer += 1
-                if ai_timer >= 30:
+                if self.ai_enabled and ai_timer >= 30:
                     ai_timer = 0
                     self.ai_move()
 
