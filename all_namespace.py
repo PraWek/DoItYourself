@@ -110,6 +110,76 @@ def create_toggle_ai(game_instance):
     return toggle_handler
 
 
+def create_get_wizard_health(game_instance):
+    def get_health(args):
+        if not args or not isinstance(args, tuple):
+            return 0
+        wizard_name = args[0]
+        if not isinstance(wizard_name, dict) or wizard_name.get("type") != "string":
+            return 0
+        for wizard in game_instance.wizards:
+            if wizard.name == wizard_name["value"]:
+                return wizard.health
+        return 0
+
+    return get_health
+
+
+def create_is_wizard_visible(game_instance):
+    def is_visible(args):
+        if not args or not isinstance(args, tuple) or len(args) != 2:
+            return False
+        observer_name = args[0]
+        target_name = args[1]
+        if not isinstance(observer_name, dict) or observer_name.get("type") != "string":
+            return False
+        if not isinstance(target_name, dict) or target_name.get("type") != "string":
+            return False
+
+        observer = None
+        target = None
+        for wizard in game_instance.wizards:
+            if wizard.name == observer_name["value"]:
+                observer = wizard
+            elif wizard.name == target_name["value"]:
+                target = wizard
+
+        if not observer or not target:
+            return False
+
+        visible_cells = observer.get_visible_cells(game_instance.game_map)
+        return (target.x, target.y) in visible_cells
+
+    return is_visible
+
+
+def create_get_distance(game_instance):
+    def get_distance(args):
+        if not args or not isinstance(args, tuple) or len(args) != 2:
+            return 999
+        wizard1_name = args[0]
+        wizard2_name = args[1]
+        if not isinstance(wizard1_name, dict) or wizard1_name.get("type") != "string":
+            return 999
+        if not isinstance(wizard2_name, dict) or wizard2_name.get("type") != "string":
+            return 999
+
+        wizard1 = None
+        wizard2 = None
+        for wizard in game_instance.wizards:
+            if wizard.name == wizard1_name["value"]:
+                wizard1 = wizard
+            elif wizard.name == wizard2_name["value"]:
+                wizard2 = wizard
+
+        if not wizard1 or not wizard2:
+            return 999
+
+        return abs(wizard1.x - wizard2.x) + abs(wizard1.y - wizard2.y)
+
+    return get_distance
+
+
 def namespace():
     return [{
         "+": {"function": add},

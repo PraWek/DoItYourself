@@ -1,0 +1,16 @@
+(let ((health (get-wizard-health "Мерлин"))
+      (enemy-visible (is-wizard-visible "Мерлин" "Гэндальф"))
+      (distance (get-distance "Мерлин" "Гэндальф")))
+  (if enemy-visible
+      (if (< health 15)
+          (move-wizard "Мерлин" (1 -1))  ; Отступаем по диагонали
+          (progn
+              (select-spell "Мерлин" "молния")
+              (cast-spell "Мерлин" "молния" 16 11)))
+      ; Поисковое поведение - движение по спирали в противоположном направлении
+      (let ((x (% (+ distance 1) 4)))
+        (cond
+          ((= x 0) (move-wizard "Мерлин" (-1 0)))
+          ((= x 1) (move-wizard "Мерлин" (0 -1)))
+          ((= x 2) (move-wizard "Мерлин" (1 0)))
+          ((= x 3) (move-wizard "Мерлин" (0 1)))))))
