@@ -41,7 +41,12 @@ def parse(tokens):
         if not tokens:
             raise SyntaxError("Отсутствует закрывающая скобка")
         tokens.pop(0)
-        return tuple(lst[0] if len(lst) == 1 else lst[0] if len(lst) == 0 else (lst[0], tuple(lst[1:])))
+        if len(lst) == 0:
+            return ()
+        elif len(lst) == 1:
+            return (lst[0], ())
+        else:
+            return (lst[0], tuple(lst[1:]))
     elif token.startswith('"') and token.endswith('"'):
         return {"type": "string", "value": token[1:-1]}
     elif token.startswith('['):

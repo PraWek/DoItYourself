@@ -1,8 +1,10 @@
 import pygame
 from typing import List, Tuple, Dict
-from all_namespace import namespace, create_move_wizard, cast_spell, create_select_spell, create_toggle_ai
+from all_namespace import namespace, create_move_wizard, cast_spell, create_select_spell, \
+    create_get_wizard_health, create_is_wizard_visible, create_get_distance, create_toggle_ai
 from tokenize_and_parse import tokenize, parse
 from evaluate import evaluate
+import random
 
 
 class Wizard:
@@ -15,6 +17,19 @@ class Wizard:
         self.direction = (0, 1)  # (dx, dy)
         self.selected_spell = "огненный шар"
         self.score = 0
+        self.vision_range = 4
+        self.original_vision_range = 4
+
+    def get_visible_cells(self, game_map) -> list:
+        visible_cells = []
+        for dy in range(-self.vision_range, self.vision_range + 1):
+            for dx in range(-self.vision_range, self.vision_range + 1):
+                check_x = self.x + dx
+                check_y = self.y + dy
+                if game_map.is_valid_position(check_x, check_y):
+                    if (dx * dx + dy * dy) <= self.vision_range * self.vision_range:
+                        visible_cells.append((check_x, check_y))
+        return visible_cells
 
 
 class Spell:
@@ -23,6 +38,7 @@ class Spell:
         self.damage = damage
         self.mana_cost = mana_cost
         self.range = range
+        self.special_effect = None
 
 
 class VisualEffect:
@@ -69,6 +85,10 @@ class WizardGame:
     def __init__(self):
         self.current_wizard_index = 0
         self.game_map = GameMap(20, 15)
+        self.lisp_command_input = ""
+        self.game_started = False
+        self.countdown = 3
+        self.countdown_timer = 0
         self.wizards: List[Wizard] = []
         self.ai_enabled = False
         self.casting_mode = False
@@ -80,15 +100,29 @@ class WizardGame:
         }
         self.projectiles: List[SpellProjectile] = []
         self.names = namespace()
-        self.names[0]["move-wizard"] = {"function": create_move_wizard(self)}
-        self.names[0]["select-spell"] = {"function": create_select_spell(self)}
-        self.names[0]["toggle-ai"] = {"function": create_toggle_ai(self)}
-        self.lisp_command_input = ""
-        self.lisp_output = ""
-        self.command_history = []
-        self.history_index = -1
+
+        # Separate console states for each wizard
+        self.gandalf_console = {
+            "input": "",
+            "output": "",
+            "history": [],
+            "history_index": -1
+        }
+        self.merlin_console = {
+            "input": "",
+            "output": "",
+            "history": [],
+            "history_index": -1
+        }
+        self.active_console = self.gandalf_console
         self.show_help = False
         self.game_over = False
+
+        # Strategy execution tracking
+        self.strategy_counters = {
+            "Гэндальф": 0,
+            "Мерлин": 0
+        }
 
         # Add wizards
         self.gandalf = Wizard(16, 11, "Гэндальф")
@@ -99,7 +133,7 @@ class WizardGame:
         pygame.init()
         self.cell_size = 40
         self.screen_width = self.game_map.width * self.cell_size
-        self.screen_height = self.game_map.height * self.cell_size + 100  # Extra space for LISP console
+        self.screen_height = self.game_map.height * self.cell_size  # Remove extra space for console
         self.screen = pygame.display.set_mode((self.screen_width, self.screen_height))
         pygame.display.set_caption("Битва Волшебников")
 
@@ -120,6 +154,11 @@ class WizardGame:
 
         self.names[0]["move-wizard"] = {"function": create_move_wizard(self)}
         self.names[0]["cast-spell"] = {"function": cast_spell(self)}
+        self.names[0]["select-spell"] = {"function": create_select_spell(self)}
+        self.names[0]["toggle-ai"] = {"function": create_toggle_ai(self)}
+        self.names[0]["get-wizard-health"] = {"function": create_get_wizard_health(self)}
+        self.names[0]["is-wizard-visible"] = {"function": create_is_wizard_visible(self)}
+        self.names[0]["get-distance"] = {"function": create_get_distance(self)}
 
         self._setup_game()
         self.clock = pygame.time.Clock()
@@ -182,6 +221,12 @@ class WizardGame:
                     )
                     self.visual_effects.append(hit_effect)
                     proj.caster.score += proj.spell.damage  # Счет
+
+                    # Специальный эффект для молнии
+                    if proj.spell.special_effect == "vision_reduce":
+                        if random.random() < 0.5:
+                            wizard.vision_range = max(1, wizard.vision_range // 2)
+
                     self.projectiles.remove(proj)
 
                     # Проверка на победу
@@ -190,7 +235,7 @@ class WizardGame:
                     break
 
     def handle_input(self):
-        # All input is now handled through LISP console commands
+        # No keyboard input for wizard movement - only strategy execution
         pass
 
     def move_wizard(self, wizard_name, dx, dy):
@@ -256,6 +301,12 @@ class WizardGame:
 
                         wizard.direction = (dx, dy)
 
+                        # Специальный эффект для молнии
+                        if spell_name == "молния":
+                            spell.special_effect = "vision_reduce"
+                        else:
+                            spell.special_effect = None
+
                         self.projectiles.append(SpellProjectile(
                             wizard.x, wizard.y,
                             dx, dy,
@@ -265,34 +316,80 @@ class WizardGame:
                 return False
         return False
 
+    def load_strategy(self, wizard_name):
+        try:
+            filename = "gandelf_strategy.txt" if wizard_name == "Гэндальф" else "merlin_strategy.txt"
+            with open(filename, 'r', encoding='utf-8') as f:
+                commands = [line.strip() for line in f if line.strip() and not line.strip().startswith('#')]
+                return commands
+        except FileNotFoundError:
+            print(f"Strategy file not found for {wizard_name}")
+            return []
+        except Exception as e:
+            print(f"Error loading strategy for {wizard_name}: {e}")
+            return []
+
+    def execute_strategy(self, wizard_name):
+        commands = self.load_strategy(wizard_name)
+        if commands and self.strategy_counters[wizard_name] < len(commands):
+            # Используем команду по текущему счетчику
+            command = commands[self.strategy_counters[wizard_name]]
+
+            try:
+                from tokenize_and_parse import tokenize, parse
+                from evaluate import evaluate
+
+                tokens = tokenize(command)
+                expression = parse(tokens)
+                result = evaluate(expression, self.names)
+                print(f"{wizard_name} executed: {command} -> {result}")
+
+            except Exception as e:
+                print(f"Error executing {wizard_name} command '{command}': {e}")
+
+            # Увеличиваем счетчик для следующей команды
+            self.strategy_counters[wizard_name] += 1
+
+            # Если команды закончились, начинаем сначала
+            if self.strategy_counters[wizard_name] >= len(commands):
+                self.strategy_counters[wizard_name] = 0
+
     def handle_lisp_command(self):
-        if self.lisp_command_input.strip() == "help":
+        console = self.active_console
+
+        if console["input"].strip() == "help":
             import lisp_manual
-            self.lisp_output = lisp_manual.__doc__
+            console["output"] = lisp_manual.__doc__
             return
-        elif self.lisp_command_input.strip() == "clear":
-            self.command_history.clear()
-            self.lisp_output = "История очищена"
-            self.lisp_command_input = ""
+        elif console["input"].strip() == "clear":
+            console["history"].clear()
+            console["output"] = "История очищена"
+            console["input"] = ""
             return
-        elif self.lisp_command_input.strip() == "history":
-            self.lisp_output = "\n".join(self.command_history)
+        elif console["input"].strip() == "history":
+            console["output"] = "\n".join(console["history"])
             return
 
         try:
-            tokens = tokenize(self.lisp_command_input)
+            tokens = tokenize(console["input"])
             expression = parse(tokens)
             result = evaluate(expression, self.names)
-            self.lisp_output = str(result)
-            if self.lisp_command_input.strip():
-                self.command_history.append(self.lisp_command_input)
-            self.history_index = -1
-            self.lisp_command_input = ""
+            console["output"] = str(result)
+            if console["input"].strip():
+                console["history"].append(console["input"])
+            console["history_index"] = -1
+            console["input"] = ""
         except Exception as e:
-            self.lisp_output = f"Error: {str(e)}"
+            console["output"] = f"Error: {str(e)}"
 
     def draw(self):
         self.screen.fill((255, 255, 255))
+
+        if not self.game_started and self.countdown > 0:
+            countdown_font = pygame.font.SysFont('Arial', 72)
+            countdown_text = countdown_font.render(str(self.countdown), True, (255, 0, 0))
+            self.screen.blit(countdown_text, (self.screen_width // 2 - countdown_text.get_width() // 2,
+                                              self.screen_height // 2 - countdown_text.get_height() // 2))
 
         # Обновление эффектов
         for effect in self.visual_effects[:]:
@@ -320,17 +417,25 @@ class WizardGame:
             pygame.draw.circle(surface, (*effect.color, int(alpha)), (effect.size, effect.size), effect.size)
             self.screen.blit(surface, (x - effect.size, y - effect.size))
 
-        # Создание снарядов
         for proj in self.projectiles:
             x = int(proj.x * self.cell_size + self.cell_size // 2)
             y = int(proj.y * self.cell_size + self.cell_size // 2)
             color = self.PROJECTILE_COLORS[proj.spell.name]
             pygame.draw.circle(self.screen, color, (x, y), self.cell_size // 4)
 
-        # Создание волшебников
         for wizard in self.wizards:
             x = wizard.x * self.cell_size + self.cell_size // 2
             y = wizard.y * self.cell_size + self.cell_size // 2
+
+            # Отрисовка зоны видимости
+            visible_cells = wizard.get_visible_cells(self.game_map)
+            for vx, vy in visible_cells:
+                cell_rect = pygame.Rect(vx * self.cell_size, vy * self.cell_size,
+                                        self.cell_size, self.cell_size)
+                vision_surface = pygame.Surface((self.cell_size, self.cell_size), pygame.SRCALPHA)
+                color = (*self.WIZARD_COLORS[wizard.name], 30)  # Полупрозрачный цвет
+                pygame.draw.rect(vision_surface, color, vision_surface.get_rect())
+                self.screen.blit(vision_surface, cell_rect)
 
             pygame.draw.circle(self.screen, self.WIZARD_COLORS[wizard.name], (x, y), self.cell_size // 3)
 
@@ -348,31 +453,11 @@ class WizardGame:
             self.screen.blit(mp_text, (x - 20, y + 20))
             self.screen.blit(score_text, (x - 20, y + 35))
 
-        # LISP Console background
-        console_rect = pygame.Rect(0, self.game_map.height * self.cell_size,
-                                   self.screen_width, 120)
-        pygame.draw.rect(self.screen, (30, 30, 30), console_rect)
+        # Removed console UI
 
-        # Input area
-        input_rect = pygame.Rect(10, self.game_map.height * self.cell_size + 10,
-                                 self.screen_width - 20, 30)
-        pygame.draw.rect(self.screen, (50, 50, 50), input_rect)
-        pygame.draw.rect(self.screen, (100, 100, 100), input_rect, 1)
-
-        # Prompt and input text
-        prompt_text = self.console_font.render("LISP> ", True, (0, 255, 0))
-        self.screen.blit(prompt_text, (15, self.game_map.height * self.cell_size + 17))
-
-        input_text = self.console_font.render(self.lisp_command_input, True, (255, 255, 255))
-        self.screen.blit(input_text, (65, self.game_map.height * self.cell_size + 17))
-
-        # Help hint
-        help_text = self.console_font.render("Введите 'help' для справки", True, (100, 100, 100))
-        self.screen.blit(help_text, (self.screen_width - 200, self.game_map.height * self.cell_size + 17))
-
-        # Output area with word wrap
+        # Draw active console output
         output_lines = []
-        words = self.lisp_output.split()
+        words = self.active_console["output"].split()
         current_line = ""
         for word in words:
             test_line = current_line + " " + word if current_line else word
@@ -418,7 +503,6 @@ class WizardGame:
                 self.screen.blit(draw_text, (self.screen_width // 2 - draw_text.get_width() // 2,
                                              self.screen_height // 2 + 10))
 
-        # Draw help if needed
         if self.show_help:
             help_surface = pygame.Surface((self.screen_width - 100, self.screen_height - 150), pygame.SRCALPHA)
             help_surface.fill((50, 50, 50, 220))
@@ -446,80 +530,6 @@ class WizardGame:
 
         pygame.display.flip()
 
-    def ai_move(self):
-        # Простой ИИ для вражеского волшебника
-
-        self.regenerate_mana(self.merlin, 5)
-
-        # Если Гэндальф находится в поле зрения, а у Мерлина достаточно маны, кастуется заклинание
-        dx = self.gandalf.x - self.merlin.x
-        dy = self.gandalf.y - self.merlin.y
-
-        # На одной ли линии волшебники
-        if (dx == 0 or dy == 0 or abs(dx) == abs(dy)) and self.merlin.mana >= 20:
-            if dx != 0:
-                dx = dx // abs(dx)
-            if dy != 0:
-                dy = dy // abs(dy)
-
-            x, y = self.merlin.x, self.merlin.y
-            path_clear = True
-
-            while (x != self.gandalf.x or y != self.gandalf.y) and path_clear:
-                x += dx
-                y += dy
-                if self.game_map.is_wall(x, y) and (x != self.gandalf.x or y != self.gandalf.y):
-                    path_clear = False
-
-            if path_clear:
-                self.merlin.direction = (dx, dy)
-                # Выбор заклинания в зависимости от расстояния
-                distance = max(abs(self.gandalf.x - self.merlin.x), abs(self.gandalf.y - self.merlin.y))
-
-                if distance <= 3:
-                    self.merlin.selected_spell = "ледяной осколок"
-                elif distance <= 5:
-                    self.merlin.selected_spell = "огненный шар"
-                else:
-                    self.merlin.selected_spell = "молния"
-
-                # Есть ли мана
-                spell = self.spells[self.merlin.selected_spell]
-                if self.merlin.mana >= spell.mana_cost:
-                    self.merlin.mana -= spell.mana_cost
-                    self.projectiles.append(SpellProjectile(
-                        self.merlin.x, self.merlin.y,
-                        dx, dy,
-                        spell, self.merlin
-                    ))
-                return
-
-        # В противном случае бежим к Гэндальфу
-        possible_moves = []
-
-        # Рассмотрим все соседние ячейки
-        for move_dx, move_dy in [(0, 1), (1, 0), (0, -1), (-1, 0)]:
-            new_x, new_y = self.merlin.x + move_dx, self.merlin.y + move_dy
-
-            if self.game_map.is_valid_position(new_x, new_y):
-                # Рассчитаем расстояние до Гэндальфа после перемещения
-                distance = abs(new_x - self.gandalf.x) + abs(new_y - self.gandalf.y)
-                possible_moves.append((move_dx, move_dy, distance))
-
-        if possible_moves:
-            possible_moves.sort(key=lambda x: x[2])
-
-            # 30%-ная вероятность сделать случайный ход для обеспечения непредсказуемости
-            import random
-            if random.random() < 0.3:
-                move_dx, move_dy, _ = random.choice(possible_moves)
-            else:
-                move_dx, move_dy, _ = possible_moves[0]
-
-            self.merlin.x += move_dx
-            self.merlin.y += move_dy
-            self.merlin.direction = (move_dx, move_dy)
-
     def run(self):
         ai_timer = 0
 
@@ -542,20 +552,25 @@ class WizardGame:
                         elif not self.game_over:
                             self.cast_current_spell()
                     elif event.key == pygame.K_RETURN:
-                        if self.lisp_command_input.strip():
+                        if self.active_console["input"].strip():
                             self.handle_lisp_command()
                     elif event.key == pygame.K_BACKSPACE:
-                        self.lisp_command_input = self.lisp_command_input[:-1]
-                    elif event.key == pygame.K_UP and self.command_history:
-                        if self.history_index < len(self.command_history) - 1:
-                            self.history_index += 1
-                            self.lisp_command_input = self.command_history[-(self.history_index + 1)]
-                    elif event.key == pygame.K_DOWN and self.history_index > -1:
-                        self.history_index -= 1
-                        if self.history_index == -1:
-                            self.lisp_command_input = ""
+                        self.active_console["input"] = self.active_console["input"][:-1]
+                    elif event.key == pygame.K_UP and self.active_console["history"]:
+                        if self.active_console["history_index"] < len(self.active_console["history"]) - 1:
+                            self.active_console["history_index"] += 1
+                            self.active_console["input"] = self.active_console["history"][
+                                -(self.active_console["history_index"] + 1)]
+                    elif event.key == pygame.K_DOWN and self.active_console["history_index"] > -1:
+                        self.active_console["history_index"] -= 1
+                        if self.active_console["history_index"] == -1:
+                            self.active_console["input"] = ""
                         else:
-                            self.lisp_command_input = self.command_history[-(self.history_index + 1)]
+                            self.active_console["input"] = self.active_console["history"][
+                                -(self.active_console["history_index"] + 1)]
+                    elif event.key == pygame.K_TAB:
+                        # Switch between consoles
+                        self.active_console = self.merlin_console if self.active_console == self.gandalf_console else self.gandalf_console
                     elif event.key == pygame.K_v and pygame.key.get_mods() & pygame.KMOD_CTRL:
                         try:
                             import tkinter as tk
@@ -563,32 +578,36 @@ class WizardGame:
                             root.withdraw()
                             clipboard_text = root.clipboard_get()
                             root.destroy()
-                            self.lisp_command_input += clipboard_text
+                            self.active_console["input"] += clipboard_text
                         except:
                             pass
                     else:
-                        # Add character to LISP input
                         if event.unicode and event.unicode.isprintable():
-                            self.lisp_command_input += event.unicode
+                            self.active_console["input"] += event.unicode
 
             if not self.game_over:
-                self.handle_input()
-
-                ai_timer += 1
-                if self.ai_enabled and ai_timer >= 30:
-                    ai_timer = 0
-                    self.ai_move()
+                if not self.game_started:
+                    self.countdown_timer += 1
+                    if self.countdown_timer >= 30:  # 30 кадров = 1 секунда
+                        self.countdown_timer = 0
+                        self.countdown -= 1
+                        if self.countdown <= 0:
+                            self.game_started = True
+                            self.ai_enabled = True  # Автоматически включаем ИИ
+                else:
+                    ai_timer += 1
+                    if ai_timer >= 30:  # Выполняем команды каждую секунду
+                        ai_timer = 0
+                        self.execute_strategy("Гэндальф")
+                        self.execute_strategy("Мерлин")
 
                 self.update_projectiles()
 
-                self.regenerate_mana(self.gandalf, 0.1)
+                # Регенерация маны для обоих волшебников
+                self.regenerate_mana(self.gandalf, 0.5)
+                self.regenerate_mana(self.merlin, 0.5)
 
             self.draw()
             self.clock.tick(30)
 
         pygame.quit()
-
-
-if __name__ == "__main__":
-    game = WizardGame()
-    game.run()
