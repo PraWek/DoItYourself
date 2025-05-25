@@ -1,25 +1,18 @@
-def find_value_by_key(list_of_dicts, key):
-    for dictionary in reversed(list_of_dicts):
-        if key in dictionary:
-            return dictionary[key]
+def find_value_by_key(names, key):
+    for namespace in names:
+        if key in namespace:
+            return namespace[key]
     return None
 
 
-def evaluate_elems(elems, names):
-    if not elems:
+def evaluate_elems(values, names):
+    if not values:
         return ()
-    if isinstance(elems, tuple):
-        if len(elems) == 0:
-            return ()
-        if len(elems) == 1:
-            return (evaluate(elems[0], names), ())
-        if len(elems) == 2:
-            head, tail = elems
-            head = evaluate(head, names)
-            if tail == ():
-                return (head, ())
-            return (head, evaluate_elems(tail, names))
-    return evaluate(elems, names)
+    if isinstance(values, tuple) and len(values) == 2:
+        head, tail = values
+        return (evaluate(head, names), evaluate_elems(tail, names))
+    else:
+        return (evaluate(values, names), ())
 
 
 def evaluate(value, names):
@@ -54,14 +47,15 @@ def evaluate(value, names):
             if not value:
                 return value
 
-            if len(value) < 2:
+            if len(value) < 1:
                 raise ValueError("Некорректная структура кортежа")
 
             if len(value) < 2:
                 head = value[0]
                 tail = ()
             else:
-                head, tail = value
+                head, tail = value[0], value[1:]
+
             try:
                 head = evaluate(head, names)
             except Exception as e:
@@ -90,18 +84,3 @@ def evaluate(value, names):
         if isinstance(e, (ValueError, TypeError, NameError, SystemError)):
             raise
         raise ValueError(f"Ошибка при вычислении выражения: {str(e)}")
-
-# from calculation_functions import multiply
-#
-# # Пространство имён
-# names = [{
-#     "*": {"function": multiply},
-#     "x": 10,
-#     "y": 20,
-# }]
-#
-# # Примеры вызовов
-# print(evaluate(42, names))
-# print(evaluate("x", names))
-# # ["*", "x", "y"]
-# print(evaluate(("*", ("x", ("y", ()))), names))

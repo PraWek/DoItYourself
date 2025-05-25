@@ -1,72 +1,78 @@
-def tokenize(line):
+import re
+
+
+def tokenize(code):
+    """Разбивает код на токены"""
+    # Регулярное выражение для токенов
+    token_pattern = r'''
+        \s*                    # пропустить пробелы
+        (?:
+            ;.*$               # комментарии
+            |
+            \(                 # открывающая скобка
+            |
+            \)                 # закрывающая скобка
+            |
+            "(?:[^"\\]|\\.)*"  # строка в кавычках
+            |
+            [^\s()"';]+        # другие токены
+        )
+    '''
+
     tokens = []
-    current_token = ''
-    in_quotes = False
-    i = 0
-    while i < len(line):
-        char = line[i]
-        if char == '"':
-            if current_token and not in_quotes:
-                tokens.append(current_token)
-                current_token = ''
-            in_quotes = not in_quotes
-            current_token += char
-        elif char == ' ' and not in_quotes:
-            if current_token:
-                tokens.append(current_token)
-                current_token = ''
-        elif char == '(' or char == ')' and not in_quotes:
-            if current_token:
-                tokens.append(current_token)
-                current_token = ''
-            tokens.append(char)
-        else:
-            current_token += char
-        i += 1
-    if current_token:
-        tokens.append(current_token)
+    for match in re.finditer(token_pattern, code, re.VERBOSE | re.MULTILINE):
+        token = match.group().strip()
+        if token and not token.startswith(';'):
+            tokens.append(token)
+
     return tokens
 
 
 def parse(tokens):
-    if not tokens:
-        raise SyntaxError("Unexpected EOF")
+    """Парсит токены в S-выражения"""
 
-    token = tokens.pop(0)
+    def parse_expression(index):
+        if index >= len(tokens):
+            raise ValueError("Неожиданный конец выражения")
 
-    if token == '(':
-        lst = []
-        while tokens and tokens[0] != ')':
-            lst.append(parse(tokens))
-        if not tokens:
-            raise SyntaxError("Отсутствует закрывающая скобка")
-        tokens.pop(0)
-        if len(lst) == 0:
-            return ()
-        elif len(lst) == 1:
-            return (lst[0], ())
+        token = tokens[index]
+
+        if token == '(':
+            # Парсим список
+            index += 1
+            elements = []
+
+            while index < len(tokens) and tokens[index] != ')':
+                expr, index = parse_expression(index)
+                elements.append(expr)
+
+            if index >= len(tokens):
+                raise ValueError("Отсутствует закрывающая скобка")
+
+            index += 1  # пропускаем ')'
+            return tuple(elements), index
+
+        elif token == ')':
+            raise ValueError("Неожиданная закрывающая скобка")
+
+        elif token.startswith('"') and token.endswith('"'):
+            # Строка
+            return {"type": "string", "value": token[1:-1]}, index + 1
+
+        elif token.isdigit() or (token.startswith('-') and token[1:].isdigit()):
+            # Целое число
+            return int(token), index + 1
+
+        elif '.' in token and token.replace('.', '').replace('-', '').isdigit():
+            # Число с плавающей точкой
+            return float(token), index + 1
+
         else:
-            return (lst[0], tuple(lst[1:]))
-    elif token.startswith('"') and token.endswith('"'):
-        return {"type": "string", "value": token[1:-1]}
-    elif token.startswith('['):
-        if not token == '[':
-            raise SyntaxError("Недопустимый синтаксис массива")
-        arr = []
-        while tokens and tokens[0] != ']':
-            arr.append(parse(tokens))
-        if not tokens:
-            raise SyntaxError("Отсутствует закрывающая скобка")
-        tokens.pop(0)
-        return {"type": "array", "value": arr}
+            # Символ
+            return token, index + 1
 
-    elif token == ']' or token == '}' or token == ')':
-        raise SyntaxError(f"Unexpected {token}")
-    else:
-        try:
-            return int(token)
-        except ValueError:
-            try:
-                return float(token)
-            except ValueError:
-                return token
+    if not tokens:
+        return ()
+
+    expr, _ = parse_expression(0)
+    return expr

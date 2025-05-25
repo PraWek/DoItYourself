@@ -1,58 +1,83 @@
-from check_pair import check_pair
-
-
-def add(pair):
-    """
-    (+ 1 2 3) = 6
-    """
-    if pair == ():
+def add(args):
+    if not args:
         return 0
-    else:
-        head, tail = pair
-        if isinstance(tail, tuple):
-            return head + add(tail)
-        return head + tail
+    total = 0
+    while args:
+        if isinstance(args, tuple) and len(args) >= 2:
+            total += args[0]
+            args = args[1]
+        elif isinstance(args, tuple) and len(args) == 1:
+            total += args[0]
+            break
+        else:
+            total += args
+            break
+    return total
 
 
-def subtract(pair):
-    """
-    (- 5 3) = 2
-    """
-    try:
-        check_pair(pair)
-        head, tail = pair
-        if not tail:
-            raise ValueError("Требуется как минимум 2 числа для вычитания")
-        return head - add(tail)
-    except Exception as e:
-        raise ValueError(f"Ошибка в операции вычитания: {str(e)}")
+def subtract(args):
+    if not args or (isinstance(args, tuple) and len(args) < 2):
+        raise ValueError("subtract требует минимум 2 аргумента")
+
+    if isinstance(args, tuple):
+        result = args[0]
+        args = args[1]
+        while args:
+            if isinstance(args, tuple) and len(args) >= 2:
+                result -= args[0]
+                args = args[1]
+            elif isinstance(args, tuple) and len(args) == 1:
+                result -= args[0]
+                break
+            else:
+                result -= args
+                break
+    return result
 
 
-def multiply(pair):
-    """
-    (* 2 3 4) = 24
-    """
-    if pair == ():
+def multiply(args):
+    if not args:
         return 1
-    else:
-        head, tail = pair
-        return head * multiply(tail)
+    result = 1
+    while args:
+        if isinstance(args, tuple) and len(args) >= 2:
+            result *= args[0]
+            args = args[1]
+        elif isinstance(args, tuple) and len(args) == 1:
+            result *= args[0]
+            break
+        else:
+            result *= args
+            break
+    return result
 
 
-def divide(pair):
-    """
-    (/ 24 2 3) = 4
-    """
+def divide(args):
+    if not args or (isinstance(args, tuple) and len(args) < 2):
+        raise ValueError("divide требует минимум 2 аргумента")
+
     try:
-        check_pair(pair)
-        head, tail = pair
-        if not tail:
-            raise ValueError("Требуется как минимум 2 числа для деления")
-
-        divisor = multiply(tail)
-        if divisor == 0:
-            raise ValueError("Деление на ноль")
-
-        return head / divisor
+        if isinstance(args, tuple):
+            head = args[0]
+            args = args[1]
+            while args:
+                if isinstance(args, tuple) and len(args) >= 2:
+                    divisor = args[0]
+                    if divisor == 0:
+                        raise ValueError("Деление на ноль")
+                    head = head / divisor
+                    args = args[1]
+                elif isinstance(args, tuple) and len(args) == 1:
+                    divisor = args[0]
+                    if divisor == 0:
+                        raise ValueError("Деление на ноль")
+                    head = head / divisor
+                    break
+                else:
+                    if args == 0:
+                        raise ValueError("Деление на ноль")
+                    head = head / args
+                    break
+        return head
     except Exception as e:
         raise ValueError(f"Ошибка в операции деления: {str(e)}")
