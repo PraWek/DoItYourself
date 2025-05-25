@@ -1,6 +1,7 @@
 from calculation_functions import add, subtract, multiply, divide
 from comparison_functions import less_than, greater_than, less_or_equal, greater_or_equal, equal
 from evaluate import evaluate
+import random as python_random
 
 
 def try_function(args):
@@ -18,31 +19,26 @@ def try_function(args):
 
 def create_move_wizard(game_instance):
     def move_wizard(args):
-        # Extract arguments from nested tuple structure
-        def flatten_args(arg_tuple):
-            result = []
-            current = arg_tuple
-            while isinstance(current, tuple) and len(current) == 2:
-                result.append(current[0])
-                current = current[1]
-            if current != ():
-                result.append(current)
-            return result
+        if not args or not isinstance(args, tuple) or len(args) != 2:
+            return "Invalid arguments"
 
-        if not args:
-            return "No arguments provided"
-
-        flat_args = flatten_args(args)
-
-        if len(flat_args) < 3:
-            return "Not enough arguments"
-
-        wizard_name = flat_args[0]
-        dx = flat_args[1]
-        dy = flat_args[2]
+        wizard_name = args[0]
+        move_coords = args[1]
 
         if not isinstance(wizard_name, dict) or wizard_name.get("type") != "string":
             return "Invalid wizard name"
+
+        # Handle both tuple and direct coordinates
+        if isinstance(move_coords, tuple) and len(move_coords) == 2:
+            dx, dy = move_coords
+        elif isinstance(move_coords, (int, float)):
+            # Handle case where coordinates are passed as separate arguments
+            if len(args) >= 3:
+                dx, dy = move_coords, args[2]
+            else:
+                return "Invalid move coordinates"
+        else:
+            return "Invalid move coordinates"
 
         for wizard in game_instance.wizards:
             if wizard.name == wizard_name["value"]:
@@ -58,29 +54,20 @@ def create_move_wizard(game_instance):
 
 def cast_spell(game_instance):
     def spell_handler(args):
-        # Extract arguments from nested tuple structure
-        def flatten_args(arg_tuple):
-            result = []
-            current = arg_tuple
-            while isinstance(current, tuple) and len(current) == 2:
-                result.append(current[0])
-                current = current[1]
-            if current != ():
-                result.append(current)
-            return result
+        if not args or not isinstance(args, tuple) or len(args) < 2:
+            return "Invalid arguments"
 
-        if not args:
-            return "No arguments provided"
-
-        flat_args = flatten_args(args)
-
-        if len(flat_args) < 4:
-            return "Not enough arguments"
-
-        wizard_name = flat_args[0]
-        spell_name = flat_args[1]
-        target_x = flat_args[2]
-        target_y = flat_args[3]
+        # Handle both (wizard spell x y) and (wizard spell (x y)) formats
+        if len(args) == 3:
+            wizard_name, spell_name, target_coords = args
+            if isinstance(target_coords, tuple) and len(target_coords) == 2:
+                target_x, target_y = target_coords
+            else:
+                return "Invalid target coordinates"
+        elif len(args) == 4:
+            wizard_name, spell_name, target_x, target_y = args
+        else:
+            return "Invalid number of arguments"
 
         if not isinstance(wizard_name, dict) or wizard_name.get("type") != "string":
             return "Invalid wizard name"
@@ -90,6 +77,9 @@ def cast_spell(game_instance):
         return game_instance.cast_spell(wizard_name["value"], spell_name["value"], target_x, target_y)
 
     return spell_handler
+
+
+
 
 
 def create_select_spell(game_instance):
@@ -189,9 +179,23 @@ def create_get_distance(game_instance):
 
     return get_distance
 
+def random_function(args):
+    if not args:
+        return python_random.random()
+    if len(args) == 1 and isinstance(args[0], (int, float)):
+        return python_random.randint(0, int(args[0]) - 1)
+    return python_random.random()
+
+def mod_function(args):
+    if len(args) != 2:
+        raise ValueError("mod requires exactly 2 arguments")
+    return args[0] % args[1]
 
 def namespace():
-    return [{
+    return [
+        {
+            "nil": {"type": "nil", "value": None},
+            "t": {"type": "boolean", "value": True},
         "+": {"function": add},
         "-": {"function": subtract},
         "*": {"function": multiply},
@@ -207,6 +211,11 @@ def namespace():
         "or": {"function": lambda args: any(args) if args else False},
         "not": {"function": lambda args: not args[0] if args else True},
         "if": {"function": lambda args: args[1] if args and args[0] else (args[2] if len(args) > 2 else None)},
+        "cond": {"function": lambda args: cond_eval(args)},
+        "progn": {"function": lambda args: args[-1] if args else None},
+        "let": {"function": lambda args: let_eval(args)},
+        "letrec": {"function": lambda args: letrec_eval(args)},
+        "lambda": {"function": lambda args: create_lambda(args)},
         "list": {"function": lambda args: list(args) if args else []},
         "car": {"function": lambda args: args[0][0] if args and args[0] else None},
         "cdr": {"function": lambda args: args[0][1:] if args and args[0] else []},
@@ -214,10 +223,14 @@ def namespace():
         "length": {"function": lambda args: len(args[0]) if args and hasattr(args[0], '__len__') else 0},
         "map": {"function": lambda args: [args[0](x) for x in args[1]] if len(args) >= 2 else []},
         "filter": {"function": lambda args: [x for x in args[1] if args[0](x)] if len(args) >= 2 else []},
-        "reduce": {"function": lambda args: reduce_func(args[0], args[1], args[2] if len(args) > 2 else None) if len(
-            args) >= 2 else None},
+        "reduce": {"function": lambda args: reduce_func(args[0], args[1], args[2] if len(args) > 2 else None) if len(args) >= 2 else None},
+        "min": {"function": lambda args: min(args) if args else 0},
+        "max": {"function": lambda args: max(args) if args else 0},
+        "abs": {"function": lambda args: abs(args[0]) if args else 0},
+        "random": {"function": random_function},
+        "mod": {"function": mod_function},
+        "sqrt": {"function": lambda args: int(args[0] ** 0.5) if args else 0},
     }]
-
 
 def reduce_func(func, iterable, initializer=None):
     import functools
@@ -226,7 +239,69 @@ def reduce_func(func, iterable, initializer=None):
     else:
         return functools.reduce(func, iterable)
 
+def cond_eval(clauses):
+    for clause in clauses:
+        if len(clause) >= 2:
+            condition, action = clause[0], clause[1]
+            if condition or condition == 't':  # 't' is true in Lisp
+                return action
+    return None
 
+def let_eval(args):
+    if len(args) < 2:
+        return None
+
+    from evaluate import evaluate
+    bindings, body = args[0], args[1:]
+
+    # Create new environment with bindings
+    new_env = namespace()
+
+    # Process bindings
+    if isinstance(bindings, (list, tuple)):
+        for binding in bindings:
+            if isinstance(binding, (list, tuple)) and len(binding) >= 2:
+                var_name = binding[0]
+                var_value = evaluate(binding[1], new_env)
+                new_env[0][var_name] = var_value
+
+    # Evaluate body in new environment
+    result = None
+    for expr in body:
+        result = evaluate(expr, new_env)
+
+    return result
+
+def letrec_eval(args):
+    if len(args) < 2:
+        return None
+
+    from evaluate import evaluate
+    bindings, body = args[0], args[1:]
+
+    # Create new environment with bindings (letrec allows recursive references)
+    new_env = namespace()
+
+    # Process bindings
+    if isinstance(bindings, (list, tuple)):
+        for binding in bindings:
+            if isinstance(binding, (list, tuple)) and len(binding) >= 2:
+                var_name = binding[0]
+                var_value = evaluate(binding[1], new_env)
+                new_env[0][var_name] = var_value
+
+    # Evaluate body in new environment
+    result = None
+    for expr in body:
+        result = evaluate(expr, new_env)
+
+    return result
+
+def create_lambda(args):
+    if len(args) < 2:
+        return lambda x: x
+    params, body = args[0], args[1]
+    return lambda x: body
 def create_conditional_move(game_instance):
     def conditional_move(args):
         if not args or len(args) < 3:
@@ -243,7 +318,6 @@ def create_conditional_move(game_instance):
             return False
 
     return conditional_move
-
 
 def create_strategy_selector(game_instance):
     def strategy_selector(args):
@@ -268,7 +342,6 @@ def create_strategy_selector(game_instance):
 
     return strategy_selector
 
-
 def create_spell_optimizer(game_instance):
     def spell_optimizer(args):
         if not args or len(args) < 2:
@@ -284,12 +357,11 @@ def create_spell_optimizer(game_instance):
         if target_distance <= 3:
             return "ледяной осколок"  # Short range, low mana
         elif target_distance <= 5:
-            return "огненный шар"  # Medium range, medium mana
+            return "огненный шар"     # Medium range, medium mana
         else:
-            return "молния"  # Long range, high mana
+            return "молния"           # Long range, high mana
 
     return spell_optimizer
-
 
 def create_position_evaluator(game_instance):
     def position_evaluator(args):

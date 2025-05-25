@@ -317,10 +317,40 @@ class WizardGame:
         return False
 
     def load_strategy(self, wizard_name):
+        # Map wizard names to correct file names
+        name_mapping = {
+            "Гэндальф": "gandelf_strategy.txt",
+            "Мерлин": "merlin_strategy.txt"
+        }
+        filename = name_mapping.get(wizard_name, f"{wizard_name.lower()}_strategy.txt")
         try:
-            filename = "gandelf_strategy.txt" if wizard_name == "Гэндальф" else "merlin_strategy.txt"
             with open(filename, 'r', encoding='utf-8') as f:
-                commands = [line.strip() for line in f if line.strip() and not line.strip().startswith('#')]
+                lines = [line.strip() for line in f if line.strip() and not line.strip().startswith('#')]
+
+                # Combine multi-line expressions into single commands
+                commands = []
+                current_command = ""
+                paren_count = 0
+
+                for line in lines:
+                    current_command += " " + line if current_command else line
+
+                    # Count parentheses to determine if expression is complete
+                    for char in line:
+                        if char == '(':
+                            paren_count += 1
+                        elif char == ')':
+                            paren_count -= 1
+
+                    # If parentheses are balanced, we have a complete expression
+                    if paren_count == 0 and current_command.strip():
+                        commands.append(current_command.strip())
+                        current_command = ""
+
+                # Add any remaining incomplete command
+                if current_command.strip():
+                    commands.append(current_command.strip())
+
                 return commands
         except FileNotFoundError:
             print(f"Strategy file not found for {wizard_name}")
@@ -389,7 +419,7 @@ class WizardGame:
             countdown_font = pygame.font.SysFont('Arial', 72)
             countdown_text = countdown_font.render(str(self.countdown), True, (255, 0, 0))
             self.screen.blit(countdown_text, (self.screen_width // 2 - countdown_text.get_width() // 2,
-                                              self.screen_height // 2 - countdown_text.get_height() // 2))
+                                            self.screen_height // 2 - countdown_text.get_height() // 2))
 
         # Обновление эффектов
         for effect in self.visual_effects[:]:
@@ -431,7 +461,7 @@ class WizardGame:
             visible_cells = wizard.get_visible_cells(self.game_map)
             for vx, vy in visible_cells:
                 cell_rect = pygame.Rect(vx * self.cell_size, vy * self.cell_size,
-                                        self.cell_size, self.cell_size)
+                                      self.cell_size, self.cell_size)
                 vision_surface = pygame.Surface((self.cell_size, self.cell_size), pygame.SRCALPHA)
                 color = (*self.WIZARD_COLORS[wizard.name], 30)  # Полупрозрачный цвет
                 pygame.draw.rect(vision_surface, color, vision_surface.get_rect())
@@ -529,6 +559,8 @@ class WizardGame:
                 y_pos += 30
 
         pygame.display.flip()
+
+
 
     def run(self):
         ai_timer = 0
