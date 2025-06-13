@@ -1,45 +1,83 @@
-from check_pair import check_pair
+def add(args):
+    if not args:
+        return 0
+    total = 0
+    while args:
+        if isinstance(args, tuple) and len(args) >= 2:
+            total += args[0]
+            args = args[1]
+        elif isinstance(args, tuple) and len(args) == 1:
+            total += args[0]
+            break
+        else:
+            total += args
+            break
+    return total
 
-def add(pair):
-    try:
-        if pair == ():
-            return 0
-        head, tail = pair
-        if not isinstance(head, (int, float)):
-            raise TypeError("Аргументы должны быть числами")
-        return head + add(tail)
-    except Exception as e:
-        raise ValueError(f"Ошибка в операции сложения: {str(e)}")
 
-def subtract(pair):
-    try:
-        check_pair(pair)
-        head, tail = pair
-        if not isinstance(head, (int, float)) or not isinstance(tail[0], (int, float)):
-            raise TypeError("Аргументы должны быть числами")
-        return head - tail[0]
-    except Exception as e:
-        raise ValueError(f"Ошибка в операции вычитания: {str(e)}")
+def subtract(args):
+    if not args or (isinstance(args, tuple) and len(args) < 2):
+        raise ValueError("subtract требует минимум 2 аргумента")
 
-def multiply(pair):
-    try:
-        if pair == ():
-            return 1
-        head, tail = pair
-        if not isinstance(head, (int, float)):
-            raise TypeError("Аргументы должны быть числами")
-        return head * multiply(tail)
-    except Exception as e:
-        raise ValueError(f"Ошибка в операции умножения: {str(e)}")
+    if isinstance(args, tuple):
+        result = args[0]
+        args = args[1]
+        while args:
+            if isinstance(args, tuple) and len(args) >= 2:
+                result -= args[0]
+                args = args[1]
+            elif isinstance(args, tuple) and len(args) == 1:
+                result -= args[0]
+                break
+            else:
+                result -= args
+                break
+    return result
 
-def divide(pair):
+
+def multiply(args):
+    if not args:
+        return 1
+    result = 1
+    while args:
+        if isinstance(args, tuple) and len(args) >= 2:
+            result *= args[0]
+            args = args[1]
+        elif isinstance(args, tuple) and len(args) == 1:
+            result *= args[0]
+            break
+        else:
+            result *= args
+            break
+    return result
+
+
+def divide(args):
+    if not args or (isinstance(args, tuple) and len(args) < 2):
+        raise ValueError("divide требует минимум 2 аргумента")
+
     try:
-        check_pair(pair)
-        head, tail = pair
-        if not isinstance(head, (int, float)) or not isinstance(tail[0], (int, float)):
-            raise TypeError("Аргументы должны быть числами")
-        if tail[0] == 0:
-            raise ZeroDivisionError("Деление на ноль")
-        return head / tail[0]
+        if isinstance(args, tuple):
+            head = args[0]
+            args = args[1]
+            while args:
+                if isinstance(args, tuple) and len(args) >= 2:
+                    divisor = args[0]
+                    if divisor == 0:
+                        raise ValueError("Деление на ноль")
+                    head = head / divisor
+                    args = args[1]
+                elif isinstance(args, tuple) and len(args) == 1:
+                    divisor = args[0]
+                    if divisor == 0:
+                        raise ValueError("Деление на ноль")
+                    head = head / divisor
+                    break
+                else:
+                    if args == 0:
+                        raise ValueError("Деление на ноль")
+                    head = head / args
+                    break
+        return head
     except Exception as e:
         raise ValueError(f"Ошибка в операции деления: {str(e)}")

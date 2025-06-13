@@ -1,17 +1,18 @@
-def find_value_by_key(list_of_dicts, key):
-    for dictionary in reversed(list_of_dicts):
-        if key in dictionary:
-            return dictionary[key]
+def find_value_by_key(names, key):
+    for namespace in names:
+        if key in namespace:
+            return namespace[key]
     return None
 
 
-def evaluate_elems(elems, names):
-    if not elems:
+def evaluate_elems(values, names):
+    if not values:
         return ()
-    head, tail = elems
-    head = evaluate(head, names)
-    tail = evaluate_elems(tail, names)
-    return (head, tail)
+    if isinstance(values, tuple) and len(values) == 2:
+        head, tail = values
+        return (evaluate(head, names), evaluate_elems(tail, names))
+    else:
+        return (evaluate(values, names), ())
 
 
 def evaluate(value, names):
@@ -25,8 +26,7 @@ def evaluate(value, names):
             elif value["type"] == "array":
                 return {"type": "array", "value": [evaluate(x, names) for x in value["value"]]}
             elif value["type"] == "dict":
-                return {"type": "dict", "value": {evaluate(k, names): evaluate(v, names)
-                                                  for k, v in value["value"].items()}}
+                return {"type": "dict", "value": {k: evaluate(v, names) for k, v in value["value"].items()}}
 
         elif isinstance(value, str):
             if not names:
@@ -47,10 +47,15 @@ def evaluate(value, names):
             if not value:
                 return value
 
-            if len(value) < 2:
+            if len(value) < 1:
                 raise ValueError("Некорректная структура кортежа")
 
-            head, tail = value
+            if len(value) < 2:
+                head = value[0]
+                tail = ()
+            else:
+                head, tail = value[0], value[1:]
+
             try:
                 head = evaluate(head, names)
             except Exception as e:
@@ -79,18 +84,3 @@ def evaluate(value, names):
         if isinstance(e, (ValueError, TypeError, NameError, SystemError)):
             raise
         raise ValueError(f"Ошибка при вычислении выражения: {str(e)}")
-
-# from calculation_functions import multiply
-#
-# # Пространство имён
-# names = [{
-#     "*": {"function": multiply},
-#     "x": 10,
-#     "y": 20,
-# }]
-#
-# # Примеры вызовов
-# print(evaluate(42, names))
-# print(evaluate("x", names))
-# # ["*", "x", "y"]
-# print(evaluate(("*", ("x", ("y", ()))), names))

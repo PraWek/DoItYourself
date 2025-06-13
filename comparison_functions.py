@@ -1,10 +1,12 @@
 from check_pair import check_pair
 
+
 def validate_numeric_operands(head, tail):
     if not isinstance(head, (int, float)) or not isinstance(tail[0], (int, float)):
         raise TypeError("Операнды должны быть числами")
     if not tail or len(tail) < 1:
         raise ValueError("Отсутствует второй операнд")
+
 
 def less_than(pair):
     try:
@@ -18,6 +20,7 @@ def less_than(pair):
     except Exception as e:
         raise ValueError(f"Ошибка в операции '<': {str(e)}")
 
+
 def greater_than(pair):
     try:
         check_pair(pair)
@@ -29,6 +32,7 @@ def greater_than(pair):
         return ()
     except Exception as e:
         raise ValueError(f"Ошибка в операции '>': {str(e)}")
+
 
 def less_or_equal(pair):
     try:
@@ -42,6 +46,7 @@ def less_or_equal(pair):
     except Exception as e:
         raise ValueError(f"Ошибка в операции '<=': {str(e)}")
 
+
 def greater_or_equal(pair):
     try:
         check_pair(pair)
@@ -54,6 +59,7 @@ def greater_or_equal(pair):
     except Exception as e:
         raise ValueError(f"Ошибка в операции '>=': {str(e)}")
 
+
 def equal(pair):
     try:
         check_pair(pair)
@@ -65,3 +71,43 @@ def equal(pair):
         return ()
     except Exception as e:
         raise ValueError(f"Ошибка в операции '==': {str(e)}")
+
+
+def less_than(args):
+    if not args or (isinstance(args, tuple) and len(args) < 2):
+        return ()
+
+    if isinstance(args, tuple) and len(args) >= 2:
+        return 1 if args[0] < args[1] else ()
+
+
+def greater_than(args):
+    if not args or (isinstance(args, tuple) and len(args) < 2):
+        return ()
+
+    if isinstance(args, tuple) and len(args) >= 2:
+        return 1 if args[0] > args[1] else ()
+
+
+def less_or_equal(args):
+    if not args or (isinstance(args, tuple) and len(args) < 2):
+        return ()
+
+    if isinstance(args, tuple) and len(args) >= 2:
+        return 1 if args[0] <= args[1] else ()
+
+
+def greater_or_equal(args):
+    if not args or (isinstance(args, tuple) and len(args) < 2):
+        return ()
+
+    if isinstance(args, tuple) and len(args) >= 2:
+        return 1 if args[0] >= args[1] else ()
+
+
+def equal(args):
+    if not args or (isinstance(args, tuple) and len(args) < 2):
+        return ()
+
+    if isinstance(args, tuple) and len(args) >= 2:
+        return 1 if args[0] == args[1] else ()
